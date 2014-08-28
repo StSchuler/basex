@@ -102,7 +102,7 @@ public final class CreateDB extends ACreate {
           if(data.meta.createattr) create(IndexType.ATTRIBUTE, data, this);
           if(data.meta.createftxt) create(IndexType.FULLTEXT,  data, this);
 
-          LuceneBuildIndex.luceneIndex(name, context);
+          LuceneBuildIndex.luceneIndex(context);
         } finally {
           finishUpdate();
         }

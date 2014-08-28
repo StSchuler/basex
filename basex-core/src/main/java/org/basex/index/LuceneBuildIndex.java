@@ -10,8 +10,6 @@ import javax.xml.parsers.SAXParserFactory;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.document.*;
 import org.apache.lucene.index.*;
-import org.apache.lucene.queryparser.classic.*;
-import org.apache.lucene.search.*;
 import org.apache.lucene.store.*;
 import org.apache.lucene.util.Version;
 import org.xml.sax.Attributes;
@@ -19,25 +17,33 @@ import org.xml.sax.SAXException;
 import org.xml.sax.helpers.DefaultHandler;
 
 import org.basex.core.Context;
-import org.basex.core.cmd.CreateDB;
 import org.basex.data.Data;
 import org.basex.io.*;
-import org.basex.io.out.ArrayOutput;
-import org.basex.io.serial.Serializer;
-import org.basex.query.QueryProcessor;
-import org.basex.query.value.Value;
-import org.basex.query.value.item.Item;
-import org.basex.query.value.node.DBNode;
 import org.basex.util.Token;
 
 
 
+/**
+ * Builds Lucene Index for current database context.
+ *
+ * @author Stephan
+ *
+ */
 public class LuceneBuildIndex extends DefaultHandler {
+  /** Element Buffer.  */
   private StringBuilder elementBuffer = new StringBuilder();
-  private Map<String,String> attributeMap = new HashMap<String,String> ();
+  /** Attribut Map.  */
+  private Map<String, String> attributeMap = new HashMap<>();
+  /** Lucene Document.  */
   private Document doc;
 
-  public Document getDocument(InputStream is)
+  /**
+   * Parses InputStream of XML document to Lucene Document.
+   * @param is InputStream
+   * @return Lucene Document
+   * @throws Exception Exception
+   */
+  public Document getDocument(final InputStream is)
       throws Exception {
     SAXParserFactory spf = SAXParserFactory.newInstance();
     try {
@@ -50,11 +56,14 @@ public class LuceneBuildIndex extends DefaultHandler {
     return doc;
   }
 
+  @Override
   public void startDocument() {
     doc = new Document();
   }
 
-  public void startElement(String uri, String localName, String qName, Attributes atts)
+  @Override
+  public void startElement(final String uri, final String localName,
+      final String qName, final Attributes atts)
       throws SAXException {
     elementBuffer.setLength(0);
     attributeMap.clear();
@@ -67,25 +76,32 @@ public class LuceneBuildIndex extends DefaultHandler {
     }
 
 
-  public void characters(char[] text, int start, int length) {
+  @Override
+  public void characters(final char[] text, final int start, final int length) {
     elementBuffer.append(text, start, length);
   }
 
 
-  public void endElement(String uri, String localName, String qName)
+  @Override
+  public void endElement(final String uri, final String localName, final String qName)
       throws SAXException {
     doc.add(new TextField(qName, elementBuffer.toString(), Field.Store.YES));
 
   }
 
-  public static void luceneIndex(String name, Context context) throws Exception {
+  /**
+   * Builds luceneIndex of current database context.
+   * @param context database context
+   * @throws Exception exception
+   */
+  public static void luceneIndex(final Context context) throws Exception {
 
-    LuceneBuildIndex handler = new LuceneBuildIndex();
+    //LuceneBuildIndex handler = new LuceneBuildIndex();
     IOFile indexpath = context.globalopts.dbpath();
     String dbname = context.data().meta.name;
 
     StandardAnalyzer analyzer = new StandardAnalyzer(Version.LUCENE_4_9);
-    File indexFile = new File(indexpath.toString() + "/" + dbname + "/"+ "LuceneIndex");
+    File indexFile = new File(indexpath.toString() + "/" + dbname + "/" + "LuceneIndex");
     indexFile.mkdir();
 
     Directory index = FSDirectory.open(indexFile);
@@ -99,7 +115,7 @@ public class LuceneBuildIndex extends DefaultHandler {
     for(int pre = 0; pre < size; pre++) {
       // reset output stream and serialize next item
       if(data.kind(pre) == Data.TEXT) {
-        int parentpre = data.parent(pre, Data.TEXT);
+        //int parentpre = data.parent(pre, Data.TEXT);
         //byte[] elem = data.name(parentpre, Data.ELEM);
         byte[] text = data.text(pre, true);
 
@@ -112,10 +128,9 @@ public class LuceneBuildIndex extends DefaultHandler {
 
 
     //DBNode node = new DBNode(context.data(), 0);
-    //Document doc = handler.getDocument(new ByteArrayInputStream(node.serialize().toString().getBytes()));
+    //Document doc = handler.getDocument(
+    //new ByteArrayInputStream(node.serialize().toString().getBytes()));
     //writer.addDocument(doc);
-
-    //System.out.println(doc);
 
     writer.close();
 
