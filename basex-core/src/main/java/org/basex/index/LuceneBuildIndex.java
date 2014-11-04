@@ -1,15 +1,19 @@
 package org.basex.index;
 
 import java.io.*;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 
 import javax.xml.parsers.SAXParser;
 import javax.xml.parsers.SAXParserFactory;
 
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.document.*;
+import org.apache.lucene.facet.*;
+import org.apache.lucene.facet.sortedset.*;
+import org.apache.lucene.facet.taxonomy.*;
+import org.apache.lucene.facet.taxonomy.directory.*;
 import org.apache.lucene.index.*;
+import org.apache.lucene.index.IndexWriterConfig.OpenMode;
 import org.apache.lucene.store.*;
 import org.apache.lucene.util.Version;
 import org.xml.sax.Attributes;
@@ -102,11 +106,19 @@ public class LuceneBuildIndex extends DefaultHandler {
 
     StandardAnalyzer analyzer = new StandardAnalyzer(Version.LUCENE_4_9);
     File indexFile = new File(indexpath.toString() + "/" + dbname + "/" + "LuceneIndex");
+    File taxoIndexFile = new File(indexpath.toString() + "/" + dbname + "/" + "LuceneIndex-taxo");
     indexFile.mkdir();
 
+    FacetsConfig fconfig = new FacetsConfig();
+    fconfig.setMultiValued("text", true);
+    fconfig.setIndexFieldName("text", "$text");
+
+
     Directory index = FSDirectory.open(indexFile);
+    Directory taxoIndex = FSDirectory.open(taxoIndexFile);
     IndexWriterConfig config = new IndexWriterConfig(Version.LUCENE_4_9, analyzer);
     IndexWriter writer = new IndexWriter(index, config);
+    DirectoryTaxonomyWriter taxoWriter = new DirectoryTaxonomyWriter(taxoIndex, OpenMode.CREATE);
 
 
     Data data = context.data();
@@ -115,17 +127,22 @@ public class LuceneBuildIndex extends DefaultHandler {
     for(int pre = 0; pre < size; pre++) {
       // reset output stream and serialize next item
       if(data.kind(pre) == Data.TEXT) {
-        //int parentpre = data.parent(pre, Data.TEXT);
-        //byte[] elem = data.name(parentpre, Data.ELEM);
+        int parentpre = data.parent(pre, Data.TEXT);
+        byte[] elem = data.name(parentpre, Data.ELEM);
         byte[] text = data.text(pre, true);
 
         Document doc = new Document();
+
         doc.add(new IntField("pre", pre, Field.Store.YES));
         doc.add(new TextField("text", Token.string(text), Field.Store.YES));
-        writer.addDocument(doc);
+        doc.add(new IntAssociationFacetField(1, "text", Token.string(elem)));
+        writer.addDocument(fconfig.build(taxoWriter, doc));
+        //taxoWriter.addCategory(new FacetLabel("text", Token.string(elem)));
       }
     }
 
+    writer.commit();
+    //taxoWriter.commit();
 
     //DBNode node = new DBNode(context.data(), 0);
     //Document doc = handler.getDocument(
@@ -133,6 +150,7 @@ public class LuceneBuildIndex extends DefaultHandler {
     //writer.addDocument(doc);
 
     writer.close();
+    taxoWriter.close();
 
   }
 
